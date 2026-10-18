@@ -1,0 +1,365 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Clinic Information System</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+            background: #f4f7fb;
+            color: #222;
+        }
+
+        h1 {
+            color: #145a32;
+            text-align: center;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px #ccc;
+        }
+
+        input {
+            padding: 10px;
+            margin: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        #clinicForm {
+            margin-bottom: 20px;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+
+        th {
+            background: #145a32;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background: #f2f2f2;
+        }
+
+        #message {
+            margin-top: 15px;
+            font-weight: bold;
+        }
+
+        button {
+            padding: 10px 16px;
+            margin: 5px;
+            background: #145a32;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            opacity: 0.85;
+        }
+
+        .delete-button {
+            background: #c0392b;
+        }
+
+        .edit-button {
+            background: #2471a3;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Health Clinic Information System</h1>
+        <p>View, register, and manage clinic information below.</p>
+
+        <h2>Register a New Clinic</h2>
+
+        <form id="clinicForm">
+            <input name="clinic_name" placeholder="Clinic Name" required>
+            <input name="doctor_name" placeholder="Doctor Name" required>
+            <input name="location" placeholder="Location" required>
+            <input name="phone" placeholder="Phone Number">
+            <input name="email" type="email" placeholder="Email Address">
+            <input name="services" placeholder="Services">
+            <input name="opening_hours" placeholder="Opening Hours">
+
+            <button type="submit">Add Clinic</button>
+            <button type="button" onclick="loadClinics()">Refresh Clinics</button>
+        </form>
+
+        <p id="message" role="status">Loading clinic records...</p>
+
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Clinic Name</th>
+                        <th>Doctor Name</th>
+                        <th>Location</th>
+                        <th>Phone</th>
+                        <th>Email</th>
+                        <th>Services</th>
+                        <th>Opening Hours</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody id="clinicTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api/clinic';
+
+        // Load and display clinic records
+        async function loadClinics() {
+            const message = document.getElementById('message');
+            const tableBody = document.getElementById('clinicTableBody');
+
+            message.textContent = 'Loading clinic records...';
+
+            try {
+                const response = await fetch(API_URL);
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch clinic records.');
+                }
+
+                const clinics = await response.json();
+                tableBody.replaceChildren();
+
+                if (clinics.length === 0) {
+                    message.textContent = 'No clinic records found.';
+                    return;
+                }
+
+                clinics.forEach(clinic => {
+                    const row = document.createElement('tr');
+
+                    [
+                        clinic.id,
+                        clinic.clinic_name,
+                        clinic.doctor_name,
+                        clinic.location,
+                        clinic.phone,
+                        clinic.email,
+                        clinic.services,
+                        clinic.opening_hours
+                    ].forEach(value => {
+                        const cell = document.createElement('td');
+                        cell.textContent = value ?? '';
+                        row.appendChild(cell);
+                    });
+
+                    // Actions column
+                    const actionsCell = document.createElement('td');
+
+                    // Edit button
+                    const editButton = document.createElement('button');
+                    editButton.textContent = 'Edit';
+                    editButton.className = 'edit-button';
+
+                    editButton.addEventListener('click', () => {
+                        editClinic(clinic);
+                    });
+
+                    // Delete button
+                    const deleteButton = document.createElement('button');
+                    deleteButton.textContent = 'Delete';
+                    deleteButton.className = 'delete-button';
+
+                    deleteButton.addEventListener('click', async () => {
+                        if (!confirm(`Delete ${clinic.clinic_name}?`)) {
+                            return;
+                        }
+
+                        try {
+                            const deleteResponse = await fetch(
+                                `${API_URL}/${clinic.id}`,
+                                { method: 'DELETE' }
+                            );
+
+                            const result = await deleteResponse.json();
+
+                            if (!deleteResponse.ok) {
+                                throw new Error(
+                                    result.error || 'Failed to delete clinic.'
+                                );
+                            }
+
+                            message.textContent = 'Clinic deleted successfully!';
+                            await loadClinics();
+                        } catch (error) {
+                            message.textContent = error.message;
+                            console.error(error);
+                        }
+                    });
+
+                    actionsCell.appendChild(editButton);
+                    actionsCell.appendChild(deleteButton);
+                    row.appendChild(actionsCell);
+
+                    tableBody.appendChild(row);
+                });
+
+                message.textContent =
+                    `${clinics.length} clinic record(s) loaded successfully.`;
+
+            } catch (error) {
+                message.textContent =
+                    'Could not load clinics. Make sure the backend server is running.';
+                console.error(error);
+            }
+        }
+
+        // Add a new clinic
+        document.getElementById('clinicForm').addEventListener(
+            'submit',
+            async function (event) {
+                event.preventDefault();
+
+                const formData = new FormData(this);
+                const clinic = Object.fromEntries(formData.entries());
+                const message = document.getElementById('message');
+
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(clinic)
+                    });
+
+                    const result = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(
+                            result.error || 'Could not add clinic.'
+                        );
+                    }
+
+                    message.textContent = 'Clinic added successfully!';
+                    this.reset();
+                    await loadClinics();
+
+                } catch (error) {
+                    message.textContent = error.message;
+                    console.error(error);
+                }
+            }
+        );
+
+        // Edit an existing clinic using the PUT API
+        async function editClinic(clinic) {
+            const clinic_name = prompt(
+                'Enter clinic name:',
+                clinic.clinic_name
+            );
+
+            if (clinic_name === null) return;
+
+            const doctor_name = prompt(
+                'Enter doctor name:',
+                clinic.doctor_name
+            );
+
+            if (doctor_name === null) return;
+
+            const location = prompt(
+                'Enter location:',
+                clinic.location
+            );
+
+            if (location === null) return;
+
+            const phone = prompt('Enter phone number:', clinic.phone || '');
+            if (phone === null) return;
+
+            const email = prompt('Enter email:', clinic.email || '');
+            if (email === null) return;
+
+            const services = prompt(
+                'Enter services:',
+                clinic.services || ''
+            );
+
+            if (services === null) return;
+
+            const opening_hours = prompt(
+                'Enter opening hours:',
+                clinic.opening_hours || ''
+            );
+
+            if (opening_hours === null) return;
+
+            try {
+                const response = await fetch(`${API_URL}/${clinic.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        clinic_name,
+                        doctor_name,
+                        location,
+                        phone,
+                        email,
+                        services,
+                        opening_hours
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(
+                        result.error || 'Failed to update clinic.'
+                    );
+                }
+
+                document.getElementById('message').textContent =
+                    'Clinic updated successfully!';
+
+                await loadClinics();
+
+            } catch (error) {
+                document.getElementById('message').textContent = error.message;
+                console.error(error);
+            }
+        }
+
+        // Load records when the page opens
+        loadClinics();
+    </script>
+</body>
+</html>
